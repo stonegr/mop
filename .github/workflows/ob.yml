@@ -147,11 +147,23 @@ jobs:
         retain_days: 0
         keep_minimum_runs: 2
 
-    - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@master
+    - name: Remove old releases
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 3
-        delete_tags: true
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release list \
+          --limit 100 \
+          --json tagName,createdAt \
+          --jq '
+            [.[] | select(.tagName | startswith("${{ inputs.cate }}"))]
+            | sort_by(.createdAt)
+            | reverse
+            | .[3:]
+            | .[].tagName
+          ' |
+        while read -r tag; do
+          echo "Deleting release: $tag"
+          gh release delete "$tag" --yes --cleanup-tag
+        done
+
